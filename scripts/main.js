@@ -154,7 +154,7 @@ async function showOutput(command, args) {
       break;
     case "oiia":
       trueValue(command);
-      playSound('static/oiia-short.mp3'); // Assume you have a sound file for cheering
+      playSound('/static/oiia-short.mp3'); // Assume you have a sound file for cheering
       createText("Oiia! Oiia! Oiia!");
       await delay(1000);
       createText("Oiia! Oiia! Oiia!");
