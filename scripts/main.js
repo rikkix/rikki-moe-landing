@@ -1,6 +1,9 @@
 // --- Constants ---
 const app = document.querySelector("#app");
-const delay = ms => new Promise(res => setTimeout(res, ms));
+function delay(ms) {
+  scrollToBottom();
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // --- Data Definitions ---
 const links = [
@@ -57,7 +60,7 @@ app.addEventListener("keypress", async function (event) {
 });
 
 app.addEventListener("click", function () {
-  const input = document.querySelector("input");
+  const input = document.querySelector(".command-input");
   input.focus();
 });
 
@@ -99,8 +102,17 @@ function new_line() {
   div.setAttribute("class", "type");
   const i = document.createElement("i");
   i.setAttribute("class", "fas fa-angle-right icone");
+
+  // Create a hidden input field to prevent autocomplete
+  const hiddenInput = document.createElement("input");
+  hiddenInput.setAttribute("style", "display: none; visibility: hidden;");
+
   const input = document.createElement("input");
+  input.setAttribute("class", "command-input");
+
+
   div.appendChild(i);
+  div.appendChild(hiddenInput);
   div.appendChild(input);
   app.appendChild(div);
   input.focus();
@@ -113,7 +125,7 @@ function removeInput() {
 
 // --- Command Handlers ---
 async function executeInput(command) {
-  var value = command ? command : document.querySelector("input").value;
+  var value = command ? command : document.querySelector(".command-input").value;
   removeInput();
 
   value = value.trim();
@@ -151,6 +163,69 @@ async function showOutput(command, args) {
       createText("Rebooting...");
       await delay(400);
       createText(randomElement(rebootRoasts));
+      break;
+    case "echo":
+      const textToEcho = args.slice(1).join(" ");
+      trueValue(command);
+      createText(`Echo: ${textToEcho}`);
+      break;
+    case "df":
+      trueValue(command);
+      createText("Filesystem           1K-blocks      Used Available Use% Mounted on");
+      createText("/dev/sda1              10240000   5120000   5120000  50% /");
+      createText("/dev/sdb1              20480000   20400000     800000 100% /mnt/usb");
+      createText("Disk space low? Not in my world.");
+      break;
+    case "pwd":
+      trueValue(command);
+      createText("/home/guest/No_Way_Out");
+      break;
+    case "cat":
+      const fileName = args[1] || 'undefined.txt';
+      trueValue(command);
+      if (fileName === 'undefined.txt') {
+        createText("cat: undefined.txt: No such file or directory");
+      } else {
+        createText(`Reading contents of ${fileName}...`);
+        await delay(500);
+        createText("Error: This file is too mysterious to read.");
+      }
+      break;
+    case "top":
+      trueValue(command);
+      createText("Processes running...\n");
+      await delay(500);
+      createText("PID    USER   %CPU  %MEM   COMMAND");
+      createText("1234   root   0.2   1.0   /bin/bash");
+      createText("5678   guest  0.5   0.7   /usr/bin/firefox");
+      createText("9876   guest  99.9  99.9   /usr/bin/playing_hokey_pokey.sh");
+      createText("Process hogging all your memory: You.");
+      break;
+    case "rm":
+      const fileToRemove = args[1] || "important_file.txt";
+      trueValue(command);
+      if (fileToRemove === "important_file.txt") {
+        createText(`Are you sure you want to delete '${fileToRemove}'? [y/N]`);
+        await delay(500);
+        createText("Error: You can't delete this file. It's too important!");
+      } else {
+        createText(`Deleted '${fileToRemove}'... (Just kidding, it's still there.)`);
+      }
+      break;
+    case "ls":
+      trueValue(command);
+      const files = [
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "src/",
+        "memes/",
+        "very_secret_file.txt",
+        "super_important_task_list.docx",
+        "you_dont_want_to_know.mp3",
+        "this_is_a_test_file.txt"
+      ];
+      files.forEach(file => createText(file));
       break;
     case "oiia":
       trueValue(command);
