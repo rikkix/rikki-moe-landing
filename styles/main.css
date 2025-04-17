@@ -48,7 +48,7 @@ body{
   flex-direction: column;
   width:100%;
   max-width:800px;
-  height:500px;
+  height:900px;
   overflow: hidden;
   border-radius: 6px;
   border: 1px solid gray;
@@ -121,7 +121,7 @@ h2{
   font-size:16px;
   color:rgb(238, 238, 238);
 }
-p.code{
+p.code a{
   color:#66C2CD;
   margin-left:8px;
 }
@@ -131,13 +131,14 @@ span.text{
 }
 p.path{
   color:#F7FCA0;
+  padding-bottom: 0;
 }
 p.path span{
-  color:#6A77D2;
-}
-p.path span + span{
   color:#9CEAF3;
 }
+{{/* p.path span + span{
+  color:#9CEAF3;
+} */}}
 
 .sucess{
   color:#5AD786;
@@ -167,12 +168,13 @@ input:focus{
 .type{
   display:flex;
   align-items: center;
-  padding:8px 0;
+  padding-top: 0;
+  padding-bottom: 8px;
 }
 .type2{
   display:flex;
   align-items: center;
-  padding:8px 0;
+  padding: 0;
 }
 .icone{
   color:#5AD786;
