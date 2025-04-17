@@ -1,45 +1,23 @@
+// --- Constants ---
 const app = document.querySelector("#app");
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-links = [
-  {
-    name: "blog",
-    url: "https://blog.rikki.moe",
-    desc: "Who am i and what do i do.",
-  },
-  {
-    name: "git",
-    url: "https://git.rikki.moe",
-    desc: "My personal git server.",
-  },
-  {
-    name: "github",
-    url: "https://github.com/rikkix",
-    desc: "My github page with my projects. Follow me there ;)",
-  },
-  {
-    name: "matrix-chat",
-    url: "https://chat.mtf.moe",
-    desc: "My personal matrix chat server.",
-  }
-]
+// --- Data Definitions ---
+const links = [
+  { name: "blog", url: "https://blog.rikki.moe", desc: "Who am i and what do i do." },
+  { name: "git", url: "https://git.rikki.moe", desc: "My personal git server." },
+  { name: "github", url: "https://github.com/rikkix", desc: "My github page with my projects. Follow me there ;)" },
+  { name: "matrix-chat", url: "https://chat.mtf.moe", desc: "My personal matrix chat server." }
+];
 
-commands = [
+const commands = [
   ...links,
-  {
-    name: "email",
-    desc: "Get my email address.",
-  },
-  {
-    name: "help",
-    desc: "Show the list of commands.",
-  },
-  {
-    name: "clear",
-    desc: "Clear the terminal.",
-  }
-]
+  { name: "email", desc: "Get my email address." },
+  { name: "help", desc: "Show the list of commands." },
+  { name: "clear", desc: "Clear the terminal." }
+];
 
+// --- Event Listeners ---
 app.addEventListener("keypress", async function (event) {
   if (event.key === "Enter") {
     await delay(150);
@@ -47,42 +25,40 @@ app.addEventListener("keypress", async function (event) {
   }
 });
 
-app.addEventListener("click", function (event) {
+app.addEventListener("click", function () {
   const input = document.querySelector("input");
   input.focus();
-})
+});
 
-
+// --- Terminal Initialization ---
 async function open_terminal() {
   createText("Welcome to Rikki's terminal");
   await delay(700);
   createText("Type 'help' to see the list of commands.");
   await delay(500);
-
   new_line();
-
-  executeInput("help")
+  executeInput("help");
 }
 
+// --- Utility Functions ---
 function scrollToBottom() {
   const scrollHeight = app.scrollHeight;
   app.scrollTop = scrollHeight;
 }
 
-
 function new_line() {
   const p = document.createElement("p");
   const span1 = document.createElement("span");
-  p.setAttribute("class", "path")
+  p.setAttribute("class", "path");
   p.textContent = "guest@rikki";
   span1.textContent = " ~";
   p.appendChild(span1);
-
   app.appendChild(p);
+
   const div = document.createElement("div");
-  div.setAttribute("class", "type")
+  div.setAttribute("class", "type");
   const i = document.createElement("i");
-  i.setAttribute("class", "fas fa-angle-right icone")
+  i.setAttribute("class", "fas fa-angle-right icone");
   const input = document.createElement("input");
   div.appendChild(i);
   div.appendChild(input);
@@ -95,64 +71,82 @@ function removeInput() {
   app.removeChild(div);
 }
 
-function help() {
-  for (let i = 0; i < commands.length; i++) {
-    printCommand(commands[i].name, commands[i].desc);
-  }
-}
-
+// --- Command Handlers ---
 async function executeInput(command) {
-  var value = "";
-  if (command) {
-    value = command;
-  } else {
-    value = document.querySelector("input").value;
-  }
+  var value = command ? command : document.querySelector("input").value;
   removeInput();
 
-  await showOutput(value);
+  value = value.trim();
+  const args = value.split(" ");
+  const commandName = args[0];
+
+  await showOutput(commandName, args);
   new_line();
 }
 
-async function showOutput(command) {
-  if (command === "help") {
-    trueValue(command);
-
-    help();
-  }
-  else if (command === "clear") {
-    document.querySelectorAll("p").forEach(e => e.parentNode.removeChild(e));
-    document.querySelectorAll("section").forEach(e => e.parentNode.removeChild(e));
-  }
-  else if (command === "email") {
-    trueValue(command);
-    createText("Getting email address...");
-    const email = await getEmailAddress();
-    createText(`The email address is: <a href="mailto:${email}" target="_blank">${email}</a>`);
-  }
-  else {
-    for (let i = 0; i < links.length; i++) {
-      if (command === links[i].name) {
-        trueValue(command);
-        createText(`Opening ${links[i].name} (<a href="${links[i].url}" target="_blank">${links[i].url}</a>)`);
-        scrollToBottom();
-        await delay(400);
-        window.open(links[i].url, "_blank");
-        return;
-      }
-    }
-    falseValue(command);
-    createErrorText(`command not found: ${value}`)
+async function showOutput(command, args) {
+  switch (command) {
+    case "help":
+      trueValue(command);
+      help();
+      break;
+    case "clear":
+      clearTerminal();
+      break;
+    case "su":
+    case "sudo":
+      trueValue(command);
+      createText("You are now root.");
+      await delay(400);
+      createText("Just kidding, you are still guest.");
+      break;
+    case "email":
+      trueValue(command);
+      createText("Getting email address...");
+      // record the time taken to get the email address
+      const startTime = performance.now();
+      const email = await getEmailAddress();
+      const endTime = performance.now();
+      const timeTaken = endTime - startTime;
+      createText(`The email address is: <a href="mailto:${email}" target="_blank">${email}</a> (${timeTaken.toFixed(2)}ms)`);
+      break;
+    default:
+      handleLinkCommands(command);
+      break;
   }
 }
 
+function help() {
+  commands.forEach(command => printCommand(command.name, command.desc));
+}
+
+function clearTerminal() {
+  document.querySelectorAll("p, section").forEach(e => e.parentNode.removeChild(e));
+}
+
+async function handleLinkCommands(command) {
+  for (let link of links) {
+    if (command === link.name) {
+      trueValue(command);
+      createText(`Opening ${link.name} (<a href="${link.url}" target="_blank">${link.url}</a>)`);
+      scrollToBottom();
+      await delay(400);
+      window.open(link.url, "_blank");
+      return;
+    }
+  }
+  falseValue(command);
+  createErrorText(`command not found: ${command}`);
+}
+
+// --- Command Output Helpers ---
 function trueValue(value) {
   const div = document.createElement("section");
-  div.setAttribute("class", "type2")
+  div.setAttribute("class", "type2");
   const i = document.createElement("i");
-  i.setAttribute("class", "fas fa-angle-right icone")
+  i.setAttribute("class", "fas fa-angle-right icone");
   const mensagem = document.createElement("h2");
-  mensagem.setAttribute("class", "sucess")
+  mensagem.setAttribute("class", "sucess");
   mensagem.textContent = `${value}`;
   div.appendChild(i);
   div.appendChild(mensagem);
@@ -161,11 +155,11 @@ function trueValue(value) {
 
 function falseValue(value) {
   const div = document.createElement("section");
-  div.setAttribute("class", "type2")
+  div.setAttribute("class", "type2");
   const i = document.createElement("i");
-  i.setAttribute("class", "fas fa-angle-right icone error")
+  i.setAttribute("class", "fas fa-angle-right icone error");
   const mensagem = document.createElement("h2");
-  mensagem.setAttribute("class", "error")
+  mensagem.setAttribute("class", "error");
   mensagem.textContent = `${value}`;
   div.appendChild(i);
   div.appendChild(mensagem);
@@ -174,7 +168,6 @@ function falseValue(value) {
 
 function createText(text) {
   const p = document.createElement("p");
-
   p.innerHTML = text;
   app.appendChild(p);
 }
@@ -186,18 +179,16 @@ function printCommand(command, desc) {
   cmdEle.setAttribute("class", "command");
   cmdEle.innerText = command;
 
-  // Add click event to the command
   cmdEle.addEventListener("click", async function () {
     await delay(150);
     await executeInput(command);
   });
 
-  // make cursor pointer
   cmdEle.style.cursor = "pointer";
-
   const descEle = document.createElement("span");
   descEle.setAttribute("class", "text");
   descEle.innerText = desc;
+
   p.appendChild(cmdEle);
   p.appendChild(document.createElement("br"));
   p.appendChild(descEle);
@@ -211,8 +202,7 @@ function createErrorText(text) {
   app.appendChild(p);
 }
 
-open_terminal();
-
+// --- Email Fetching ---
 async function getEmailAddress() {
   const partHash = "2f5ab71af6dfd2f3c5444a2d690fbbb880ee87f9";
   const remainingPart = "rikki.moe";
@@ -237,3 +227,6 @@ async function String2Hash(username) {
   const hashBuffer = await crypto.subtle.digest('SHA-1', data);
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+// --- Terminal Start ---
+open_terminal();
