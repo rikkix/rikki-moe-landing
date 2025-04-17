@@ -17,6 +17,37 @@ const commands = [
   { name: "clear", desc: "Clear the terminal." }
 ];
 
+const sudoRoasts = [
+  "You think you're the boss now? Nice try, you're still guest.",
+  "Trying to act like root? You can't fool me!",
+  "Permission denied, root access is for the cool kids only.",
+  "You're not fooling anyone, buddy. You're still a guest.",
+  "Is that a root password, or just wishful thinking?",
+  "The root can't hear you from down there, guest.",
+  "I see you're trying to hack your way into being the boss... nice try!",
+  "Rooting for root? Sorry, but you're still stuck as a guest."
+];
+
+const shutdownRoasts = [
+  "Shutting down? Is your internet even working?",
+  "You want to shut down? The system is already shutting down your self-esteem.",
+  "Oh, you want to shut me down? Good luck with that.",
+  "I’m not shutting down, you’re just pressing random keys.",
+  "Trying to shutdown, but all you’ve achieved is pressing your own buttons.",
+  "Shut down? Oh, you mean like your attempts at this command?",
+  "Shutdown initiated... just kidding, it's still not happening."
+];
+
+const rebootRoasts = [
+  "Rebooting? You're just hitting keys for fun, aren't you?",
+  "You want to reboot, but your life is already stuck in an endless loop.",
+  "Rebooting... Yeah, sure, just like that’ll fix everything.",
+  "Your system is rebooting... but not your sense of reality.",
+  "Trying to reboot? Maybe reboot your confidence instead.",
+  "Rebooting is a nice thought, but I’m still not impressed.",
+  "Let me guess, you’re trying to reboot me. Not gonna work!"
+];
+
 // --- Event Listeners ---
 app.addEventListener("keypress", async function (event) {
   if (event.key === "Enter") {
@@ -41,6 +72,15 @@ async function open_terminal() {
 }
 
 // --- Utility Functions ---
+function randomElement(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+function playSound(file) {
+  const audio = new Audio(file);
+  audio.play();
+}
+
 function scrollToBottom() {
   const scrollHeight = app.scrollHeight;
   app.scrollTop = scrollHeight;
@@ -96,9 +136,29 @@ async function showOutput(command, args) {
     case "su":
     case "sudo":
       trueValue(command);
-      createText("You are now root.");
+      createText("Upgrading to root...");
       await delay(400);
-      createText("Just kidding, you are still guest.");
+      createText(randomElement(sudoRoasts));
+      break;
+    case "shutdown":
+      trueValue(command);
+      createText("Shutting down...");
+      await delay(400);
+      createText(randomElement(shutdownRoasts));
+      break;
+    case "reboot":
+      trueValue(command);
+      createText("Rebooting...");
+      await delay(400);
+      createText(randomElement(rebootRoasts));
+      break;
+    case "oiia":
+      trueValue(command);
+      playSound('static/oiia-short.mp3'); // Assume you have a sound file for cheering
+      createText("Oiia! Oiia! Oiia!");
+      await delay(1000);
+      createText("Oiia! Oiia! Oiia!");
+      await delay(1000);
       break;
     case "email":
       trueValue(command);
