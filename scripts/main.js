@@ -1,367 +1,412 @@
-// --- Constants ---
-const app = document.querySelector("#app");
-function delay(ms) {
+// --------- Constants ---------
+const app = document.querySelector('#app');
+
+const LINKS = [
+  { name: 'blog', url: 'https://blog.rikki.moe', desc: 'Who am i and what do i do.' },
+  { name: 'git', url: 'https://git.rikki.moe', desc: 'My personal git server.' },
+  { name: 'github', url: 'https://github.com/rikkix', desc: 'My github page with my projects. Follow me there ;)' },
+  { name: 'matrix-chat', url: 'https://chat.mtf.moe', desc: 'My personal matrix chat server.' }
+];
+
+const COMMANDS = [
+  ...LINKS,
+  { name: 'email', desc: 'Get my email address.' },
+  { name: 'help', desc: 'Show the list of commands.' },
+  { name: 'clear', desc: 'Clear the terminal.' }
+];
+
+// Built-in handlers not in COMMANDS
+const BUILTIN_COMMANDS = ['su','sudo','shutdown','reboot','echo','df','pwd','cat','top','rm','ls','oiia'];
+
+// Consolidated for autocomplete
+const ALL_COMMANDS = [
+  ...COMMANDS.map(cmd => cmd.name),
+  ...BUILTIN_COMMANDS
+];
+
+const ROASTS = {
+  sudo: [
+    "You think you're the boss now? Nice try, you're still guest.",
+    "Trying to act like root? You can't fool me!",
+    "Permission denied, root access is for the cool kids only.",
+    "You're not fooling anyone, buddy. You're still a guest.",
+    "Is that a root password, or just wishful thinking?",
+    "The root can't hear you from down there, guest.",
+    "I see you're trying to hack your way into being the boss... nice try!",
+    "Rooting for root? Sorry, but you're still stuck as a guest."
+  ],
+  shutdown: [
+    "Shutting down? Is your internet even working?",
+    "You want to shut down? The system is already shutting down your self-esteem.",
+    "Oh, you want to shut me down? Good luck with that.",
+    "I’m not shutting down, you’re just pressing random keys.",
+    "Trying to shutdown, but all you’ve achieved is pressing your own buttons.",
+    "Shut down? Oh, you mean like your attempts at this command?",
+    "Shutdown initiated... just kidding, it's still not happening."
+  ],
+  reboot: [
+    "Rebooting? You're just hitting keys for fun, aren't you?",
+    "You want to reboot, but your life is already stuck in an endless loop.",
+    "Rebooting... Yeah, sure, just like that’ll fix everything.",
+    "Your system is rebooting... but not your sense of reality.",
+    "Trying to reboot? Maybe reboot your confidence instead.",
+    "Rebooting is a nice thought, but I’m still not impressed.",
+    "Let me guess, you’re trying to reboot me. Not gonna work!"
+  ]
+};
+
+// --------- Utilities ---------
+const delay = ms => {
   scrollToBottom();
   return new Promise(resolve => setTimeout(resolve, ms));
-}
+};
 
-// --- Data Definitions ---
-const links = [
-  { name: "blog", url: "https://blog.rikki.moe", desc: "Who am i and what do i do." },
-  { name: "git", url: "https://git.rikki.moe", desc: "My personal git server." },
-  { name: "github", url: "https://github.com/rikkix", desc: "My github page with my projects. Follow me there ;)" },
-  { name: "matrix-chat", url: "https://chat.mtf.moe", desc: "My personal matrix chat server." }
-];
+const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 
-const commands = [
-  ...links,
-  { name: "email", desc: "Get my email address." },
-  { name: "help", desc: "Show the list of commands." },
-  { name: "clear", desc: "Clear the terminal." }
-];
+// --------- Audio Playback ---------
+async function playSound(file, playSpeed = 1, minTime = null) {
+  const ctx = new AudioContext();
+  try {
+    const response    = await fetch(file);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer      = await ctx.decodeAudioData(arrayBuffer);
 
-const sudoRoasts = [
-  "You think you're the boss now? Nice try, you're still guest.",
-  "Trying to act like root? You can't fool me!",
-  "Permission denied, root access is for the cool kids only.",
-  "You're not fooling anyone, buddy. You're still a guest.",
-  "Is that a root password, or just wishful thinking?",
-  "The root can't hear you from down there, guest.",
-  "I see you're trying to hack your way into being the boss... nice try!",
-  "Rooting for root? Sorry, but you're still stuck as a guest."
-];
+    const singleDur  = buffer.duration / playSpeed;
+    const targetTime = minTime != null ? minTime : singleDur;
+    const loops      = Math.ceil(targetTime / singleDur);
+    const totalDur   = loops * singleDur;
+    const startTime  = ctx.currentTime;
+    const stopTime   = startTime + totalDur;
+    const fadeTime   = Math.min(0.1, totalDur / 2);
 
-const shutdownRoasts = [
-  "Shutting down? Is your internet even working?",
-  "You want to shut down? The system is already shutting down your self-esteem.",
-  "Oh, you want to shut me down? Good luck with that.",
-  "I’m not shutting down, you’re just pressing random keys.",
-  "Trying to shutdown, but all you’ve achieved is pressing your own buttons.",
-  "Shut down? Oh, you mean like your attempts at this command?",
-  "Shutdown initiated... just kidding, it's still not happening."
-];
+    const src = ctx.createBufferSource();
+    src.buffer             = buffer;
+    src.playbackRate.value = playSpeed;
+    src.loop               = true;
 
-const rebootRoasts = [
-  "Rebooting? You're just hitting keys for fun, aren't you?",
-  "You want to reboot, but your life is already stuck in an endless loop.",
-  "Rebooting... Yeah, sure, just like that’ll fix everything.",
-  "Your system is rebooting... but not your sense of reality.",
-  "Trying to reboot? Maybe reboot your confidence instead.",
-  "Rebooting is a nice thought, but I’m still not impressed.",
-  "Let me guess, you’re trying to reboot me. Not gonna work!"
-];
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(1, startTime);
+    gain.gain.setValueAtTime(1, stopTime - fadeTime);
+    gain.gain.linearRampToValueAtTime(0, stopTime);
 
-// --- Event Listeners ---
-app.addEventListener("keypress", async function (event) {
-  if (event.key === "Enter") {
-    await delay(150);
-    await executeInput();
+    src.connect(gain).connect(ctx.destination);
+    src.start(startTime);
+    src.stop(stopTime);
+
+    return new Promise(resolve => {
+      setTimeout(() => {
+        ctx.close();
+        resolve(totalDur);
+      }, totalDur * 1000 + 20);
+    });
+  } catch (err) {
+    console.error('Error loading audio file:', err);
+    throw err;
   }
-});
-
-app.addEventListener("click", function () {
-  const input = document.querySelector(".command-input");
-  input.focus();
-});
-
-// --- Terminal Initialization ---
-async function open_terminal() {
-  createText("Welcome to Rikki's terminal");
-  await delay(700);
-  createText("Type 'help' to see the list of commands.");
-  await delay(500);
-  new_line();
-  executeInput("help");
 }
 
-// --- Utility Functions ---
-function randomElement(array) {
-  return array[Math.floor(Math.random() * array.length)];
-}
-
-function playSound(file) {
-  const audio = new Audio(file);
-  audio.play();
-}
-
+// --------- DOM & Autocomplete Helpers ---------
 function scrollToBottom() {
-  const scrollHeight = app.scrollHeight;
-  app.scrollTop = scrollHeight;
+  app.scrollTop = app.scrollHeight;
 }
 
-function new_line() {
-  const p = document.createElement("p");
-  const span1 = document.createElement("span");
-  p.setAttribute("class", "path");
-  p.textContent = "guest@rikki";
-  span1.textContent = " ~";
-  p.appendChild(span1);
+function clearSuggestions() {
+  document.querySelectorAll('.autocomplete-suggestion').forEach(el => el.remove());
+}
+
+function createSuggestion(text) {
+  const p = document.createElement('p');
+  p.className = 'autocomplete-suggestion';
+  p.innerText = text;
+  app.appendChild(p);
+  scrollToBottom();
+}
+
+function createPrompt() {
+  const p = document.createElement('p');
+  p.className = 'path';
+  p.textContent = 'guest@rikki';
+  const span = document.createElement('span');
+  span.textContent = ' ~';
+  p.appendChild(span);
   app.appendChild(p);
 
-  const div = document.createElement("div");
-  div.setAttribute("class", "type");
-  const i = document.createElement("i");
-  i.setAttribute("class", "fas fa-angle-right icone");
+  const div = document.createElement('div');
+  div.className = 'type';
+  const icon = document.createElement('i');
+  icon.className = 'fas fa-angle-right icone';
 
-  // Create a hidden input field to prevent autocomplete
-  const hiddenInput = document.createElement("input");
-  hiddenInput.setAttribute("style", "display: none; visibility: hidden;");
+  const hidden = document.createElement('input');
+  hidden.style = 'display:none; visibility:hidden;';
 
-  const input = document.createElement("input");
-  input.setAttribute("class", "command-input");
+  const input = document.createElement('input');
+  input.className = 'command-input';
 
-
-  div.appendChild(i);
-  div.appendChild(hiddenInput);
-  div.appendChild(input);
+  div.append(icon, hidden, input);
   app.appendChild(div);
   input.focus();
 }
 
-function removeInput() {
-  const div = document.querySelector(".type");
-  app.removeChild(div);
+function removePrompt() {
+  const div = document.querySelector('.type');
+  if (div) app.removeChild(div);
 }
 
-// --- Command Handlers ---
-async function executeInput(command) {
-  var value = command ? command : document.querySelector(".command-input").value;
-  removeInput();
+function createText(text) {
+  const p = document.createElement('p');
+  p.innerHTML = text;
+  app.appendChild(p);
+  scrollToBottom();
+}
 
-  value = value.trim();
-  const args = value.split(" ");
-  const commandName = args[0];
+function createErrorText(text) {
+  const p = document.createElement('p');
+  p.textContent = text;
+  app.appendChild(p);
+  scrollToBottom();
+}
 
-  await showOutput(commandName, args);
-  new_line();
+function printCommand(name, desc) {
+  const p = document.createElement('p');
+  p.className = 'code';
+
+  const cmd = document.createElement('a');
+  cmd.className = 'command';
+  cmd.textContent = name;
+  cmd.style.cursor = 'pointer';
+  cmd.addEventListener('click', async () => {
+    clearSuggestions();
+    await delay(150);
+    await executeInput(name);
+  });
+
+  const span = document.createElement('span');
+  span.className = 'text';
+  span.textContent = desc;
+
+  p.append(cmd, document.createElement('br'), span);
+  app.appendChild(p);
+  scrollToBottom();
+}
+
+// --------- Command Handlers ---------
+async function executeInput(provided) {
+  clearSuggestions();
+  const raw = provided ?? document.querySelector('.command-input').value;
+  removePrompt();
+  const value = raw.trim();
+  const [command, ...args] = value.split(' ');
+  await showOutput(command, args);
+  createPrompt();
 }
 
 async function showOutput(command, args) {
   switch (command) {
-    case "help":
+    case 'help':
       trueValue(command);
       help();
       break;
-    case "clear":
+    case 'clear':
       clearTerminal();
       break;
-    case "su":
-    case "sudo":
+    case 'su':
+    case 'sudo':
       trueValue(command);
-      createText("Upgrading to root...");
+      createText('Upgrading to root...');
       await delay(400);
-      createText(randomElement(sudoRoasts));
+      createText(randomElement(ROASTS.sudo));
       break;
-    case "shutdown":
+    case 'shutdown':
       trueValue(command);
-      createText("Shutting down...");
+      createText('Shutting down...');
       await delay(400);
-      createText(randomElement(shutdownRoasts));
+      createText(randomElement(ROASTS.shutdown));
       break;
-    case "reboot":
+    case 'reboot':
       trueValue(command);
-      createText("Rebooting...");
+      createText('Rebooting...');
       await delay(400);
-      createText(randomElement(rebootRoasts));
+      createText(randomElement(ROASTS.reboot));
       break;
-    case "echo":
-      const textToEcho = args.slice(1).join(" ");
+    case 'echo':
       trueValue(command);
-      createText(`Echo: ${textToEcho}`);
+      createText(`Echo: ${args.join(' ')}`);
       break;
-    case "df":
+    case 'df':
       trueValue(command);
-      createText("Filesystem           1K-blocks      Used Available Use% Mounted on");
-      createText("/dev/sda1              10240000   5120000   5120000  50% /");
-      createText("/dev/sdb1              20480000   20400000     800000 100% /mnt/usb");
-      createText("Disk space low? Not in my world.");
+      ['Filesystem           1K-blocks      Used Available Use% Mounted on',
+       '/dev/sda1              10240000   5120000   5120000  50% /',
+       '/dev/sdb1              20480000   20400000     800000 100% /mnt/usb',
+       'Disk space low? Not in my world.'].forEach(createText);
       break;
-    case "pwd":
+    case 'pwd':
       trueValue(command);
-      createText("/home/guest/No_Way_Out");
+      createText('/home/guest/No_Way_Out');
       break;
-    case "cat":
-      const fileName = args[1] || 'undefined.txt';
+    case 'cat': {
+      const file = args[0] || 'undefined.txt';
       trueValue(command);
-      if (fileName === 'undefined.txt') {
-        createText("cat: undefined.txt: No such file or directory");
+      if (file === 'undefined.txt') {
+        createText(`cat: undefined.txt: No such file or directory`);
       } else {
-        createText(`Reading contents of ${fileName}...`);
+        createText(`Reading contents of ${file}...`);
         await delay(500);
-        createText("Error: This file is too mysterious to read.");
+        createText('Error: This file is too mysterious to read.');
       }
       break;
-    case "top":
+    }
+    case 'top':
       trueValue(command);
-      createText("Processes running...\n");
+      createText('Processes running...');
       await delay(500);
-      createText("PID    USER   %CPU  %MEM   COMMAND");
-      createText("1234   root   0.2   1.0   /bin/bash");
-      createText("5678   guest  0.5   0.7   /usr/bin/firefox");
-      createText("9876   guest  99.9  99.9   /usr/bin/playing_hokey_pokey.sh");
-      createText("Process hogging all your memory: You.");
+      ['PID    USER   %CPU  %MEM   COMMAND',
+       '1234   root   0.2   1.0   /bin/bash',
+       '5678   guest  0.5   0.7   /usr/bin/firefox',
+       '9876   guest  99.9  99.9   /usr/bin/playing_hokey_pokey.sh',
+       'Process hogging all your memory: You.'].forEach(createText);
       break;
-    case "rm":
-      const fileToRemove = args[1] || "important_file.txt";
+    case 'rm': {
+      const target = args[0] || 'important_file.txt';
       trueValue(command);
-      if (fileToRemove === "important_file.txt") {
-        createText(`Are you sure you want to delete '${fileToRemove}'? [y/N]`);
+      if (target === 'important_file.txt') {
+        createText(`Are you sure you want to delete '${target}'? [y/N]`);
         await delay(500);
         createText("Error: You can't delete this file. It's too important!");
       } else {
-        createText(`Deleted '${fileToRemove}'... (Just kidding, it's still there.)`);
+        createText(`Deleted '${target}'... (Just kidding, it's still there.)`);
       }
       break;
-    case "ls":
+    }
+    case 'ls':
       trueValue(command);
-      const files = [
-        "Desktop",
-        "Documents",
-        "Downloads",
-        "src/",
-        "memes/",
-        "very_secret_file.txt",
-        "super_important_task_list.docx",
-        "you_dont_want_to_know.mp3",
-        "this_is_a_test_file.txt"
-      ];
-      files.forEach(file => createText(file));
+      ['Desktop','Documents','Downloads','src/','memes/','very_secret_file.txt',
+       'super_important_task_list.docx','you_dont_want_to_know.mp3','this_is_a_test_file.txt']
+      .forEach(createText);
       break;
-    case "oiia":
+    case 'oiia':
       trueValue(command);
-      playSound('/static/oiia-short.mp3'); // Assume you have a sound file for cheering
-      createText("Oiia! Oiia! Oiia!");
-      await delay(1000);
-      createText("Oiia! Oiia! Oiia!");
-      await delay(1000);
+      createText('Oiia is coming...');
+      const iv = setInterval(() => createText('Oiia! Oiia! Oiia!'), 700);
+      await playSound('/static/oiia-short.mp3', Math.random() + 1, 2);
+      clearInterval(iv);
       break;
-    case "email":
+    case 'email':
       trueValue(command);
-      createText("Getting email address...");
-      // record the time taken to get the email address
-      const startTime = performance.now();
+      createText('Getting email address...');
+      const start = performance.now();
       const email = await getEmailAddress();
-      const endTime = performance.now();
-      const timeTaken = endTime - startTime;
-      createText(`The email address is: <a href="mailto:${email}" target="_blank">${email}</a> (${timeTaken.toFixed(2)}ms)`);
+      const duration = performance.now() - start;
+      createText(`The email address is: <a href=\"mailto:${email}\" target=\"_blank\">${email}</a> (${duration.toFixed(2)}ms)`);
       break;
     default:
-      handleLinkCommands(command);
+      await handleLinkCommands(command);
       break;
   }
 }
 
 function help() {
-  commands.forEach(command => printCommand(command.name, command.desc));
+  COMMANDS.forEach(cmd => printCommand(cmd.name, cmd.desc));
 }
 
 function clearTerminal() {
-  document.querySelectorAll("p, section").forEach(e => e.parentNode.removeChild(e));
+  document.querySelectorAll('p, section').forEach(e => e.remove());
 }
 
-async function handleLinkCommands(command) {
-  for (let link of links) {
-    if (command === link.name) {
-      trueValue(command);
-      createText(`Opening ${link.name} (<a href="${link.url}" target="_blank">${link.url}</a>)`);
-      scrollToBottom();
-      await delay(400);
-      window.open(link.url, "_blank");
-      return;
-    }
+async function handleLinkCommands(cmd) {
+  const link = LINKS.find(l => l.name === cmd);
+  if (link) {
+    trueValue(cmd);
+    createText(`Opening ${cmd} (<a href=\"${link.url}\" target=\"_blank\">${link.url}</a>)`);
+    await delay(400);
+    window.open(link.url, '_blank');
+  } else {
+    falseValue(cmd);
+    createErrorText(`command not found: ${cmd}`);
   }
-  falseValue(command);
-  createErrorText(`command not found: ${command}`);
 }
 
-// --- Command Output Helpers ---
-function trueValue(value) {
-  const div = document.createElement("section");
-  div.setAttribute("class", "type2");
-  const i = document.createElement("i");
-  i.setAttribute("class", "fas fa-angle-right icone");
-  const mensagem = document.createElement("h2");
-  mensagem.setAttribute("class", "sucess");
-  mensagem.textContent = `${value}`;
-  div.appendChild(i);
-  div.appendChild(mensagem);
+// --------- Output Helpers ---------
+const createOutput = (val, success = true) => {
+  const div = document.createElement('section');
+  div.className = 'type2';
+  const icon = document.createElement('i');
+  icon.className = `fas fa-angle-right icone${success ? '' : ' error'}`;
+  const msg = document.createElement('h2');
+  msg.className = success ? 'sucess' : 'error';
+  msg.textContent = val;
+  div.append(icon, msg);
   app.appendChild(div);
-}
+  scrollToBottom();
+};
 
-function falseValue(value) {
-  const div = document.createElement("section");
-  div.setAttribute("class", "type2");
-  const i = document.createElement("i");
-  i.setAttribute("class", "fas fa-angle-right icone error");
-  const mensagem = document.createElement("h2");
-  mensagem.setAttribute("class", "error");
-  mensagem.textContent = `${value}`;
-  div.appendChild(i);
-  div.appendChild(mensagem);
-  app.appendChild(div);
-}
+function trueValue(val) { createOutput(val, true); }
+function falseValue(val) { createOutput(val, false); }
 
-function createText(text) {
-  const p = document.createElement("p");
-  p.innerHTML = text;
-  app.appendChild(p);
-}
-
-function printCommand(command, desc) {
-  const p = document.createElement("p");
-  p.setAttribute("class", "code");
-  const cmdEle = document.createElement("a");
-  cmdEle.setAttribute("class", "command");
-  cmdEle.innerText = command;
-
-  cmdEle.addEventListener("click", async function () {
-    await delay(150);
-    await executeInput(command);
-  });
-
-  cmdEle.style.cursor = "pointer";
-  const descEle = document.createElement("span");
-  descEle.setAttribute("class", "text");
-  descEle.innerText = desc;
-
-  p.appendChild(cmdEle);
-  p.appendChild(document.createElement("br"));
-  p.appendChild(descEle);
-
-  app.appendChild(p);
-}
-
-function createErrorText(text) {
-  const p = document.createElement("p");
-  p.innerText = text;
-  app.appendChild(p);
-}
-
-// --- Email Fetching ---
+// --------- Email Hashing ---------
 async function getEmailAddress() {
-  const partHash = "2f5ab71af6dfd2f3c5444a2d690fbbb880ee87f9";
-  const remainingPart = "rikki.moe";
-  const chars = 'abcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()';
+  const partHash = '2f5ab71af6dfd2f3c5444a2d690fbbb880ee87f9';
+  const domain   = 'rikki.moe';
+  const chars    = 'abcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()';
 
-  for (let i = 0; i < chars.length; i++) {
-    for (let j = 0; j < chars.length; j++) {
-      const part = chars[i] + chars[j];
-      const hash = await String2Hash(part);
-      if (hash === partHash) {
-        return part + remainingPart;
-      }
+  for (const a of chars) {
+    for (const b of chars) {
+      const hash = await hashString(a + b);
+      if (hash === partHash) return `${a}${b}${domain}`;
     }
   }
-
   return null;
 }
 
-async function String2Hash(username) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(username);
-  const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+async function hashString(str) {
+  const data = new TextEncoder().encode(str);
+  const buf  = await crypto.subtle.digest('SHA-1', data);
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-// --- Terminal Start ---
-open_terminal();
+// --------- Initialization ---------
+function setupEventListeners() {
+  app.addEventListener('keypress', async e => {
+    if (e.key === 'Enter') {
+      clearSuggestions();
+      await delay(150);
+      await executeInput();
+    }
+  });
+
+  app.addEventListener('click', () => {
+    const input = document.querySelector('.command-input');
+    input?.focus();
+  });
+
+  // Tab autocomplete
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const input = document.querySelector('.command-input');
+      if (!input) return;
+      clearSuggestions();
+      const value = input.value;
+      const matches = ALL_COMMANDS.filter(cmd => cmd.startsWith(value));
+      if (matches.length === 1) {
+        input.value = matches[0] + ' ';
+      } else if (matches.length > 1) {
+        createSuggestion(matches.join('    '));
+      }
+    }
+  });
+}
+
+async function openTerminal() {
+  createText("Welcome to Rikki's terminal");
+  await delay(700);
+  createText("Type 'help' to see the list of commands.");
+  await delay(500);
+  createPrompt();
+  executeInput('help');
+}
+
+// Start
+setupEventListeners();
+openTerminal();
