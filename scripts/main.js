@@ -116,6 +116,7 @@ async function playSound(file, speed = 1, loops = 1) {
     // return _playWithAudioElement(file, speed, loops);
 
     console.error('❌ Failed to play sound:', err);
+    return Promise.reject(err);
   }
 }
 
@@ -353,7 +354,13 @@ async function showOutput(command, args) {
       trueValue(command);
       createText('Oiia is coming...');
       const iv = setInterval(() => createText('Oiia! Oiia! Oiia!'), 700);
-      await playSound('/static/oiia-short.mp3', Math.random() + 1, 2);
+      // playSound and check if error
+      try {
+        await playSound('/static/oiia-short.mp3', Math.random() + 0.5, 2);
+      } catch (err) {
+        createErrorText('Failed to play sound: ' + err.message);
+      }
+        
       clearInterval(iv);
       break;
     case 'email':
