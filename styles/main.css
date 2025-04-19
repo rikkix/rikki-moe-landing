@@ -32,13 +32,22 @@ a {
   color: rgb(238, 238, 238);
 }
 
-body {
+{{/* body {
   background-color: #393A59;
   height: 100vh;
   font-family: 'Fira Code', monospace;
   display: flex;
   align-items: center;
   justify-content: center;
+} */}}
+
+body {
+  height: 100vh;
+  font-family: 'Fira Code', monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #393A59;
 }
 
 .container {

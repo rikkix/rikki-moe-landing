@@ -16,13 +16,13 @@ const COMMANDS = [
 ];
 
 // Built-in handlers not in COMMANDS
-const BUILTIN_COMMANDS = ['su', 'sudo', 'shutdown', 'reboot', 'echo', 'df', 'pwd', 'cat', 'top', 'rm', 'ls', 'oiia'];
+const BUILTIN_COMMANDS = ['su', 'sudo', 'shutdown', 'reboot', 'echo', 'df', 'pwd', 'cat', 'top', 'rm', 'ls', 'oiia', 'rainbow'];
 
 // Consolidated for autocomplete
 const ALL_COMMANDS = [
   ...COMMANDS.map(cmd => cmd.name),
   ...BUILTIN_COMMANDS
-];
+].sort();
 
 const ROASTS = {
   sudo: [
@@ -360,7 +360,6 @@ async function showOutput(command, args) {
       } catch (err) {
         createErrorText('Failed to play sound: ' + err.message);
       }
-        
       clearInterval(iv);
       break;
     case 'email':
@@ -371,6 +370,12 @@ async function showOutput(command, args) {
       const duration = performance.now() - start;
       createText(`The email address is: <a href=\"mailto:${email}\" target=\"_blank\">${email}</a> (${duration.toFixed(2)}ms)`);
       break;
+      case 'rainbow':
+        trueValue(command);
+        createText('You want a rainbow? Here you go: 🌈');
+        // change the background color to a rainbow gradient
+        document.body.style.background = 'linear-gradient(238deg, #fd8800, #fd008f, #9700fd, #003dfd, #05c7e6, #4bd58d)';
+        break;
     default:
       await handleLinkCommands(command);
       break;
