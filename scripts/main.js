@@ -16,7 +16,7 @@ const COMMANDS = [
 ];
 
 // Built-in handlers not in COMMANDS
-const BUILTIN_COMMANDS = ['su','sudo','shutdown','reboot','echo','df','pwd','cat','top','rm','ls','oiia'];
+const BUILTIN_COMMANDS = ['su', 'sudo', 'shutdown', 'reboot', 'echo', 'df', 'pwd', 'cat', 'top', 'rm', 'ls', 'oiia'];
 
 // Consolidated for autocomplete
 const ALL_COMMANDS = [
@@ -64,41 +64,112 @@ const delay = ms => {
 const randomElement = arr => arr[Math.floor(Math.random() * arr.length)];
 
 // --------- Audio Playback ---------
-async function playSound(file, playSpeed = 1, minTime = null) {
-  const ctx = new AudioContext();
-  try {
-    const response    = await fetch(file);
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer      = await ctx.decodeAudioData(arrayBuffer);
-
-    const singleDur  = buffer.duration / playSpeed;
-    const targetTime = minTime != null ? minTime : singleDur;
-    const loops      = Math.ceil(targetTime / singleDur);
-    const totalDur   = loops * singleDur;
-    const startTime  = ctx.currentTime;
-    const stopTime   = startTime + totalDur;
-    const fadeTime   = Math.min(0.1, totalDur / 2);
-
-    const src = ctx.createBufferSource();
-    src.buffer             = buffer;
-    src.playbackRate.value = playSpeed;
-    src.loop               = true;
-
-    src.connect(ctx.destination);
-    src.start(startTime);
-    src.stop(stopTime);
-
-    return new Promise(resolve => {
-      setTimeout(() => {
-        ctx.close();
-        resolve(totalDur);
-      }, totalDur * 1000 + 20);
-    });
-  } catch (err) {
-    console.error('Error loading audio file:', err);
-    throw err;
+function unlockAudio() {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') {
+    ctx.resume()
   }
 }
+
+const AudioCtx = window.AudioContext ?? window.webkitAudioContext;
+let audioCtx;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+async function playSound(file, speed = 1, loops = 1) {
+  if (loops <= 0) return;
+
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') {
+    await ctx.resume();
+  }
+
+  try {
+    const resp = await fetch(file, { mode: 'cors' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.arrayBuffer();
+
+    const buffer = await ctx.decodeAudioData(data);
+
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = speed;
+    src.loop = loops > 1;
+
+    src.connect(ctx.destination);
+    src.start();
+
+    if (loops > 1) {
+      const totalTime = (buffer.duration / speed) * loops;
+      src.stop(ctx.currentTime + totalTime);
+    }
+
+    return new Promise((resolve, reject) => {
+      src.onended = () => {
+        resolve();
+      };
+    });
+  } catch (err) {
+    // console.warn('⚠️ WebAudio path failed, falling back to HTMLAudioElement:', err);
+    // return _playWithAudioElement(file, speed, loops);
+
+    console.error('❌ Failed to play sound:', err);
+  }
+}
+
+// function _playWithAudioElement(file, speed, loops) {
+//   if (loops <= 0) return Promise.resolve();
+
+//   const audio = new Audio(file);
+//   audio.preload = 'auto';
+//   audio.crossOrigin = 'anonymous';
+//   audio.playbackRate = speed;
+
+//   let remaining = loops;
+
+//   audio.addEventListener('ended',    onEnded);
+//   audio.addEventListener('error',     onError);
+
+//   function onEnded() {
+//     remaining--;
+//     if (remaining > 0) {
+//       audio.currentTime = 0;
+//       audio.play().catch(onError);
+//     } else {
+//       cleanup();
+//       resolvePromise();
+//     }
+//   }
+
+//   function onError(e) {
+//     cleanup();
+//     rejectPromise(e);
+//   }
+
+//   function cleanup() {
+//     audio.pause();
+//     audio.currentTime = 0;
+//     audio.removeEventListener('ended', onEnded);
+//     audio.removeEventListener('error', onError);
+//   }
+
+//   let resolvePromise, rejectPromise;
+//   const p = new Promise((res, rej) => {
+//     resolvePromise = res;
+//     rejectPromise  = rej;
+//   });
+
+//   // kick it off
+//   audio.play()
+//     .catch(err => {
+//       console.error('❌ <audio>.play() rejected:', err);
+//       onError(err);
+//     });
+
+//   return p;
+// }
 
 // --------- DOM & Autocomplete Helpers ---------
 function scrollToBottom() {
@@ -230,9 +301,9 @@ async function showOutput(command, args) {
     case 'df':
       trueValue(command);
       ['Filesystem           1K-blocks      Used Available Use% Mounted on',
-       '/dev/sda1              10240000   5120000   5120000  50% /',
-       '/dev/sdb1              20480000   20400000     800000 100% /mnt/usb',
-       'Disk space low? Not in my world.'].forEach(createText);
+        '/dev/sda1              10240000   5120000   5120000  50% /',
+        '/dev/sdb1              20480000   20400000     800000 100% /mnt/usb',
+        'Disk space low? Not in my world.'].forEach(createText);
       break;
     case 'pwd':
       trueValue(command);
@@ -255,10 +326,10 @@ async function showOutput(command, args) {
       createText('Processes running...');
       await delay(500);
       ['PID    USER   %CPU  %MEM   COMMAND',
-       '1234   root   0.2   1.0   /bin/bash',
-       '5678   guest  0.5   0.7   /usr/bin/firefox',
-       '9876   guest  99.9  99.9   /usr/bin/playing_hokey_pokey.sh',
-       'Process hogging all your memory: You.'].forEach(createText);
+        '1234   root   0.2   1.0   /bin/bash',
+        '5678   guest  0.5   0.7   /usr/bin/firefox',
+        '9876   guest  99.9  99.9   /usr/bin/playing_hokey_pokey.sh',
+        'Process hogging all your memory: You.'].forEach(createText);
       break;
     case 'rm': {
       const target = args[0] || 'important_file.txt';
@@ -274,9 +345,9 @@ async function showOutput(command, args) {
     }
     case 'ls':
       trueValue(command);
-      ['Desktop','Documents','Downloads','src/','memes/','very_secret_file.txt',
-       'super_important_task_list.docx','you_dont_want_to_know.mp3','this_is_a_test_file.txt']
-      .forEach(createText);
+      ['Desktop', 'Documents', 'Downloads', 'src/', 'memes/', 'very_secret_file.txt',
+        'super_important_task_list.docx', 'you_dont_want_to_know.mp3', 'this_is_a_test_file.txt']
+        .forEach(createText);
       break;
     case 'oiia':
       trueValue(command);
@@ -340,8 +411,8 @@ function falseValue(val) { createOutput(val, false); }
 // --------- Email Hashing ---------
 async function getEmailAddress() {
   const partHash = '2f5ab71af6dfd2f3c5444a2d690fbbb880ee87f9';
-  const domain   = 'rikki.moe';
-  const chars    = 'abcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()';
+  const domain = 'rikki.moe';
+  const chars = 'abcdefghijklmnopqrstuvwxyz1234567890!@#$%^&*()';
 
   for (const a of chars) {
     for (const b of chars) {
@@ -354,7 +425,7 @@ async function getEmailAddress() {
 
 async function hashString(str) {
   const data = new TextEncoder().encode(str);
-  const buf  = await crypto.subtle.digest('SHA-1', data);
+  const buf = await crypto.subtle.digest('SHA-1', data);
   return Array.from(new Uint8Array(buf))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
@@ -363,6 +434,7 @@ async function hashString(str) {
 // --------- Initialization ---------
 function setupEventListeners() {
   app.addEventListener('keypress', async e => {
+    unlockAudio();
     if (e.key === 'Enter') {
       clearSuggestions();
       await delay(150);
