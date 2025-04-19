@@ -84,12 +84,7 @@ async function playSound(file, playSpeed = 1, minTime = null) {
     src.playbackRate.value = playSpeed;
     src.loop               = true;
 
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(1, startTime);
-    gain.gain.setValueAtTime(1, stopTime - fadeTime);
-    gain.gain.linearRampToValueAtTime(0, stopTime);
-
-    src.connect(gain).connect(ctx.destination);
+    src.connect(ctx.destination);
     src.start(startTime);
     src.stop(stopTime);
 
